@@ -11,7 +11,7 @@ const Login = () => {
   const handleLogin = () => {
     // Aquí podrías implementar la lógica real de login (por ejemplo, enviar una solicitud al servidor para autenticar)
     // En este ejemplo, simulamos un login exitoso con credenciales dummy
-    if (username === 'user' && password === 'password') {
+    if (username === 'test' && password === '123456') {
       localStorage.setItem('isLoggedIn', 'true'); // Simulamos que el usuario está autenticado guardando un valor en localStorage
       router.push('/dashboard');
     } else {
