@@ -9,27 +9,55 @@ export default NextAuth({
     CredentialsProvider({
       name: "Log In",
       credentials: {
-        email: { label: "Username", type: "text", placeholder: "username" },
-        password: {
-          label: "Password",
-          type: "password",
-          placeholder: "password",
-        },
+        cedula: { label: "Cédula", type: "text", placeholder: "Cédula" },
+        clave: { label: "Clave", type: "password" },
       },
       async authorize(credentials, req) {
-        const data = await (await fetch(`${process.env.NEXTAUTH_URL}/api/auth/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-          },
-          body: JSON.stringify(credentials)
-        })).json()
+        try {
+          const { cedula, clave } = credentials;
+          const response = await fetch(`${process.env.NEXTAUTH_URL}/api/usuario?pageNumber=1&pageSize=1&cedula=${encodeURIComponent(cedula)}`);
+          const data = await response.json();
 
-        if (data) {
-          return data
+          if (response.ok && data.message === "success" && data.usuarios.length > 0) {
+            const user = data.usuarios[0];
+
+            // Simulate password validation (replace with actual logic)
+            const isValidPassword = (clave === user.clave);
+
+            if (isValidPassword) {
+              // Construct the user object to be stored in the session
+              const userSession = {
+                id: user.usuario_id,
+                cedula: user.cedula.toString(),
+                roles: [user.rol_id],
+                empresa_id: user.empresa_id,
+                nombres: user.nombres,
+                apellidos: user.apellidos,
+                fecha_nacimiento: user.fecha_nacimiento,
+              };
+
+              // Generate JWT token with userSession data
+              const access_token = jwt.sign(userSession, secret_key, { expiresIn: '1h' });
+
+              // Return user data and access token
+              return {
+                success: true,
+                message: "Logged in successfully",
+                user: userSession,
+                access_token,
+              };
+            } else {
+              // Password validation failed
+              return null;
+            }
+          } else {
+            // User not found or other error
+            return null;
+          }
+        } catch (error) {
+          console.error("Error during authorization:", error);
+          return null;
         }
-
-        return null
       }
     }),
   ],
@@ -37,9 +65,6 @@ export default NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.access_token = user.access_token;
-      }
-      if (Date.now() < Date(token.exp)) {
-        console.log("token expired")
       }
       return token;
     },
@@ -57,7 +82,6 @@ export default NextAuth({
       } else if (new URL(url).origin === baseUrl) {
         return url;
       }
-
       return baseUrl;
     },
     async signIn({ user }) {
@@ -77,5 +101,3 @@ export default NextAuth({
     async signIn(message) { /* console.log({sigin: message}) */ },
   }
 });
-
-//TODO: 

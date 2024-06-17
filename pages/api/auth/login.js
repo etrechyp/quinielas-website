@@ -1,51 +1,60 @@
-import connectDB from "/utils/connectDB";
-import User from "/models/user.model";
-import jwt from "jsonwebtoken";
+import { query } from "@/utils/db";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const secret = process.env.NEXTAUTH_SECRET;
 
 export default async function LoginHandler(req, res) {
-    const { method, body } = req
+  const { method, body } = req;
 
-    connectDB();
+  switch (method) {
+    case "POST":
+      try {
+        const { cedula, clave } = body;
 
-    switch (method) {
-        case "POST":
-            try {
-                const { email, password } = body;
+        if (!cedula || !clave) {
+          return res.status(301).json({ success: false, message: "Insert all data" });
+        }
 
-                if (!email || !password) {
-                    return res.status(301).json({ success: false, message: "insert all data" })
-                } else {
-                    const user = await User.findOne({ email });
-                    if (user) {
-                        const checkPass = await bcrypt.compare(password, user.password);
-                        if (checkPass) {
-                            const access_token = jwt.sign(
-                                {
-                                    email: user.email,
-                                    firstName: user.firstName,
-                                    lastName: user.lastName,
-                                    role: user.role,
-                                },
-                                secret, { expiresIn: "24h" }
-                            );
-                            return res.status(200).json({ success: true, access_token });
-                        } else {
-                            return res.status(401).json({ success: false, message: "username or password invalid" })
-                        }
-                    } else {
-                        return res.status(404).json({ success: false, message: "user no exist" })
-                    }
-                }
-            } catch (error) {
-                return res.status(500).json({ success: false, message: "someone error has ocurred", error })
-            }
+        // Consultar el usuario por cedula en la base de datos
+        const sql = `SELECT * FROM usuarios WHERE cedula = '${cedula}'`;
+        const users = await query(sql, { type: "SELECT" });
 
-        default:
-            return res.status(503).json({ success: false, message: "method undefined" })
-    }
+        if (users.length === 0) {
+          return res.status(404).json({ success: false, message: "User does not exist" });
+        }
+
+        const user = users[0];
+
+        // Comparar la clave proporcionada con la clave almacenada usando bcrypt
+        const match = await bcrypt.compare(clave, user.clave);
+
+        if (!match) {
+          return res.status(401).json({ success: false, message: "Cedula or password invalid" });
+        }
+
+        // Generar el token de acceso JWT
+        const access_token = jwt.sign(
+          {
+            usuario_id: user.usuario_id,
+            rol_id: user.rol_id,
+            empresa_id: user.empresa_id,
+            cedula: user.cedula,
+            nombres: user.nombres,
+            apellidos: user.apellidos,
+          },
+          secret,
+          { expiresIn: "24h" }
+        );
+
+        // Devolver respuesta con éxito y token de acceso
+        return res.status(200).json({ success: true, access_token });
+      } catch (error) {
+        console.error("Error during login:", error);
+        return res.status(500).json({ success: false, message: "An error occurred", error });
+      }
+
+    default:
+      return res.status(503).json({ success: false, message: "Method not allowed" });
+  }
 }
-
-//TODO: 
