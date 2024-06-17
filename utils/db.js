@@ -6,7 +6,7 @@ const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
   host: DB_HOST,
   port: DB_PORT,
   dialect: "mysql",
-  logging: false,
+  logging: true,
 });
 
 async function query(sql, options = {}) {

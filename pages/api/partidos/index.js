@@ -3,36 +3,46 @@ import { query } from '@/utils/db';
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      const { torneo, fecha, tipo_partido } = req.query;
-      let sql = 'SELECT * FROM partidos WHERE (equipo_a IS NOT NULL OR equipo_b IS NOT NULL)';
-      const params = [];
+      let { pageSize = 20, pageNumber = 1, torneo_id, tipo_partido, numero_jornada } = req.query;
+      const limit = parseInt(pageSize);
+      const offset = (parseInt(pageNumber) - 1) * limit;
 
-      if (torneo) {
-        sql += ' AND torneo_id = ?';
-        params.push(torneo);
-      }
+      let sql = `SELECT * FROM partidos`;
+     
+      let filters = [];
+      let values = [];
 
-      if (fecha) {
-        sql += ' AND DATE(fecha_hora_partido) = ?';
-        params.push(fecha);
+      if (torneo_id) {
+        filters.push(`torneo_id = ${torneo_id}`);
       }
 
       if (tipo_partido) {
-        sql += ' AND tipo_partido = ?';
-        params.push(tipo_partido);
+        filters.push(`tipo_partido = '${tipo_partido}'`);
       }
 
-      const partidos = await query(sql, params);
+      if (numero_jornada) {
+       filters.push(`numero_jornada = ${numero_jornada}`);
+      }
+
+      if (filters.length > 0) {
+        sql += ` WHERE ${filters.join(' AND ')}`;
+      }
+
+      sql += ` ORDER BY fecha_hora_partido ASC LIMIT ${limit} OFFSET ${offset}`;
+
+      const partidos = await query(sql);
 
       res.status(200).json({
         message: 'success',
-        partidos
+        partidos,
+        page: pageNumber,
+        pageSize: limit,
       });
     } catch (error) {
       console.error('Error al obtener partidos:', error);
       res.status(500).json({
         message: 'error',
-        error: error.message
+        error: error.message,
       });
     }
   } else {
